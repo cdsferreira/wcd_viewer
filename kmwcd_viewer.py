@@ -24,9 +24,9 @@
  *--------------------------------------------------------------------*/
 /*
 """
+import os
 # Import modules / symbols required by the application.
 import sys
-import os
 import numpy as np
 import pandas as pd
 import warnings
@@ -53,11 +53,12 @@ import KMALL
 
 # Import modules / symbols required by the application.
 from PySide6.QtWidgets import (
+    QCheckBox,
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QFileDialog, QLabel, QDoubleSpinBox, QSizePolicy, QSlider
 )
 # Import modules / symbols required by the application.
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
 #
@@ -123,7 +124,13 @@ class MainWindow(QMainWindow):
         self.loader = None
         self.pings = None
         self.nav_df = None
+        self.mrz = None
+        self.mrz_loader = None
         self.current_ping = 0
+        # Replay state
+        self.replay_timer = QTimer(self)
+        self.replay_timer.timeout.connect(self._replay_tick)
+        self._is_replaying = False
         # enable keyboard focus
         # Accept keyboard focus so keyPressEvent receives arrow keys.
         self.setFocusPolicy(Qt.StrongFocus)
@@ -147,6 +154,11 @@ class MainWindow(QMainWindow):
         btn_save = QPushButton("Save Image")
         btn_save.clicked.connect(self.save_image)
         hh.addWidget(btn_save)
+        # Toggle MRZ bottom overlay
+        self.chk_bottom = QCheckBox("Bottom (MRZ)")
+        self.chk_bottom.setChecked(False)
+        self.chk_bottom.stateChanged.connect(lambda _ : self.redraw())
+        hh.addWidget(self.chk_bottom)
         # Label with dynamic metadata (UTC time, SOG, lat/lon).
         self.meta_label = QLabel("")
         self.meta_label.setWordWrap(True)
@@ -188,6 +200,20 @@ class MainWindow(QMainWindow):
         self.xmax.valueChanged.connect(self.redraw)
         xh.addWidget(self.xmax)
         layout.addLayout(xh)
+        # Replay controls
+        xh.addWidget(QLabel("Replay (pings/s):"))
+        self.replay_rate = QDoubleSpinBox()
+        self.replay_rate.setRange(0.1, 10.0)
+        self.replay_rate.setSingleStep(0.1)
+        self.replay_rate.setDecimals(1)
+        self.replay_rate.setValue(2.0)
+        xh.addWidget(self.replay_rate)
+        self.btn_replay = QPushButton("Replay")
+        self.btn_replay.setCheckable(True)
+        self.btn_replay.toggled.connect(self._toggle_replay)
+        xh.addWidget(self.btn_replay)
+        self.replay_rate.valueChanged.connect(self._update_replay_interval)
+        
 #
 
         # canvas + colorbar
@@ -206,6 +232,7 @@ class MainWindow(QMainWindow):
         # Ping slider with custom 1-step wheel behavior.
         self.slider = OneStepWheelSlider(Qt.Horizontal)
         self.slider.valueChanged.connect(self.on_slide)
+        self.slider.valueChanged.connect(self._set_ping_from_slider)
         ph.addWidget(self.slider)
         self.lbl_ping = QLabel("0")
         ph.addWidget(self.lbl_ping)
@@ -240,7 +267,51 @@ class MainWindow(QMainWindow):
         if self.pings.empty:
             # Abort early if the file has no water-column data.
             self.statusBar().showMessage("No #MWC data found."); return
-        # SPO filter
+        # Initialize ping slider range and reset position
+        try:
+            if hasattr(self, 'slider'):
+                self.slider.setMinimum(0)
+                self.slider.setMaximum(max(0, len(self.pings) - 1))
+                self.slider.setSingleStep(1)
+                self.slider.setValue(0)
+            if hasattr(self, 'lbl_ping'):
+                self.lbl_ping.setText('0')
+            self.current_ping = 0
+        except Exception:
+            pass
+        
+        # Initialize ping slider range and reset position
+        try:
+            if hasattr(self, 'slider'):
+                self.slider.setMaximum(max(0, len(self.pings) - 1))
+                self.slider.setMinimum(0)
+                self.slider.setSingleStep(1)
+                self.slider.setValue(0)
+            if hasattr(self, 'lbl_ping'):
+                self.lbl_ping.setText('0')
+            self.current_ping = 0
+        except Exception:
+            pass
+        # Build MRZ index from current file; if not present and ext is .kmwcd, try companion .kmall
+        try:
+            _idx = getattr(self, 'Index', None) or idx  # tolerate both self.Index and local idx
+            _mrz = _idx[_idx['MessageType'] == b'#MRZ'] if 'MessageType' in _idx else None
+            if _mrz is None or _mrz.empty:
+                _mrz = _idx[_idx['MessageType'].astype(str).str.contains('MRZ', case=False, na=False)]
+            if _mrz is None or _mrz.empty:
+                base, ext = os.path.splitext(fname)
+                if ext.lower() == '.kmwcd':
+                    cand = base + '.kmall'
+                    if os.path.exists(cand):
+                        self.mrz_loader = KMALL.kmall(cand); self.mrz_loader.index_file()
+                        _mrz = self.mrz_loader.Index[self.mrz_loader.Index['MessageType'].astype(str).str.contains('MRZ', case=False, na=False)]
+                        if _mrz is not None and not _mrz.empty:
+                            self.mrz = _mrz.reset_index().reset_index(drop=True)
+            else:
+                self.mrz = _mrz.reset_index().reset_index(drop=True); self.mrz_loader = self.loader
+        except Exception:
+            self.mrz = None
+# SPO filter
         # Collect #SPO navigation datagrams (position and speed).
         spo = idx[idx.get('MessageType','')=='#SPO']
         if spo.empty:
@@ -259,7 +330,11 @@ class MainWindow(QMainWindow):
             # Build a time-indexed DataFrame with (lat, lon, SOG) for nearest-time lookup.
         self.nav_df = pd.DataFrame(recs, columns=['time','lat','lon','sog']).set_index('time') if recs else None
         # Initialize slider bounds and reset to the first ping.
-        total = len(self.pings); self.slider.setMaximum(total - 1); self.current_ping = 0; self.slider.setValue(0)
+        total = len(self.pings); self.slider.setMaximum(total - 1); self.current_ping = 0
+        # Replay state
+        self.replay_timer = QTimer(self)
+        self.replay_timer.timeout.connect(self._replay_tick)
+        self._is_replaying = False; self.slider.setValue(0)
 #
 
         # compute global ranges with percentage in status bar
@@ -353,6 +428,8 @@ class MainWindow(QMainWindow):
 
     # Render the currently selected ping using the latest controls.
     def redraw(self):
+        # keep slider synced with current ping
+        self._sync_slider()
         dg = self.loader.read_index_row(self.pings.iloc[self.current_ping])
         # Retrieve the ping's UTC timestamp from the header.
         hdr = dg.get('header', {}); dt = hdr.get('dgdatetime'); ping_time = dt.astimezone(timezone.utc) if isinstance(dt, datetime) else None
@@ -380,6 +457,62 @@ class MainWindow(QMainWindow):
         data = amp.to_numpy().T; data = np.where(mask.T, data, np.nan)
         # Clear the axes before drawing the new frame.
         self.ax.clear(); mesh = self.ax.pcolormesh(ya_arr.T, depth_arr.T, data, shading='nearest', cmap='viridis', vmin=self.amin.value(), vmax=self.amax.value())
+
+        # Overlay MRZ bottom detections as dots, if available
+        try:
+            if getattr(self, 'chk_bottom', None) and self.chk_bottom.isChecked() and getattr(self, 'mrz', None) is not None and not self.mrz.empty:
+                hdr = dg.get('header', {})
+                ping_sec = hdr.get('dgtime')
+                if ping_sec is not None:
+                    import numpy as _np
+                    # nearest MRZ row by absolute time
+                    times = _np.array(self.mrz['Time'], dtype=float)
+                    pos = int(_np.argmin(_np.abs(times - float(ping_sec))))
+                    mrz_row = self.mrz.iloc[pos]
+                    loader = getattr(self, 'mrz_loader', None) or self.loader
+                    mrz_dg = loader.read_index_row(mrz_row)
+                    s = mrz_dg.get('sounding', {})
+                    y = _np.asarray(s.get('y_reRefPoint_m', []), dtype=float)
+                    z = _np.asarray(s.get('z_reRefPoint_m', []), dtype=float)  # positive down
+                    dt = _np.asarray(s.get('detectionType', []), dtype=int)
+                    dc = _np.asarray(s.get('detectionClass', []), dtype=int)
+                    m = _np.isfinite(y) & _np.isfinite(z)
+                    if m.any():
+                        y, z = y[m], z[m]
+                        dt = dt[m] if dt.size == m.size else _np.zeros_like(y, dtype=int)
+                        dc = dc[m] if dc.size == m.size else _np.zeros_like(y, dtype=int)
+
+                        # Auto-align MRZ across-track to match image X direction
+                        try:
+                            col = ya_arr.shape[1] // 2
+                            delta_plot = float(ya_arr[-1, col] - ya_arr[0, col])
+                            delta_mrz = float(y[-1] - y[0])
+                            if _np.sign(delta_plot) != _np.sign(delta_mrz):
+                                y = -y
+                        except Exception:
+                            pass
+
+                        # Color & symbol
+                        color_map = {0: 'red', 2: 'darkblue'}
+                        is_extra = (dc != 0)
+                        for t in (0, 2, -1):
+                            sel = (dt == t) if t >= 0 else ~((dt == 0) | (dt == 2))
+                            if not sel.any(): continue
+                            c = color_map.get(t, 'gray')
+                            ns = sel & (~is_extra)
+                            if ns.any():
+                                self.ax.scatter(y[ns], z[ns], s=12, marker='o', edgecolors='none', c=c)
+                            xs = sel & is_extra
+                            if xs.any():
+                                self.ax.scatter(y[xs], z[xs], s=12, marker='o', facecolors='none', edgecolors=c, linewidths=0.8)
+
+                        try:
+                            self.statusBar().showMessage(f"MRZ points: {y.size}")
+                        except Exception:
+                            pass
+        except Exception:
+            # Non-fatal: continue without crashing on overlay errors
+            pass
         # Refresh the fixed colorbar axis with the new mesh.
         self.cax.clear(); self.fig.colorbar(mesh, cax=self.cax, label='Amplitude')
         # Execute statement (def:redraw)
@@ -407,6 +540,59 @@ class MainWindow(QMainWindow):
 #
 
 # Program entry point: build QApplication, create MainWindow, and start event loop.
+    def _sync_slider(self):
+        try:
+            if hasattr(self, 'slider') and self.pings is not None:
+                self.slider.blockSignals(True)
+                self.slider.setMinimum(0)
+                self.slider.setMaximum(max(0, len(self.pings) - 1))
+                self.slider.setSingleStep(1)
+                self.slider.setValue(int(self.current_ping))
+                self.slider.blockSignals(False)
+                if hasattr(self, 'lbl_ping'):
+                    self.lbl_ping.setText(str(int(self.current_ping)))
+        except Exception:
+            pass
+
+    def _set_ping_from_slider(self, v: int):
+        try:
+            self.current_ping = int(v)
+            self.redraw()
+        except Exception:
+            pass
+
+
+    def _toggle_replay(self, checked: bool):
+        if checked and (self.pings is not None) and (len(self.pings) > 0):
+            self._is_replaying = True
+            self._update_replay_interval()
+            self.replay_timer.start()
+            try: self.btn_replay.setText(f"Stop ({self.replay_rate.value():.1f} p/s)")
+            except Exception: pass
+        else:
+            self._is_replaying = False
+            self.replay_timer.stop()
+            try: self.btn_replay.setText("Replay")
+            except Exception: pass
+
+    def _update_replay_interval(self):
+        try:
+            pps = float(self.replay_rate.value())
+            if pps <= 0: pps = 1.0
+            self.replay_timer.setInterval(max(1, int(1000.0 / pps)))
+            if self._is_replaying:
+                try: self.btn_replay.setText(f"Stop ({pps:.1f} p/s)")
+                except Exception: pass
+        except Exception:
+            pass
+
+    def _replay_tick(self):
+        if self.pings is None or len(self.pings) == 0:
+            self._toggle_replay(False)
+            return
+        self.current_ping = (self.current_ping + 1) % len(self.pings)
+        self.redraw()
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     win = MainWindow()
