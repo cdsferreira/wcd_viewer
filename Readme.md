@@ -1,7 +1,7 @@
 # KMWCD Viewer
 
-**Current Version:** kmwcd_viewer_v0.5.0.py  
-**Scope:** Raw amplitude plotting (no dB), navigation metadata from `#SPO`, static X-scale option, image export, and progress feedback.
+**Current Version:** kmwcd_viewer_v0.6.0.py  
+**Scope:** Raw amplitude plotting (no dB), navigation metadata from `#SPO`, static X-scale option, image export, progress feedback, display bottom detections, and data replay.
 
 This tool was created using [valschmidt](https://github.com/valschmidt) work and his [KMALL file reader](https://github.com/valschmidt/kmall), and was heavily influenced the [KMWCD Viewer for EM2040](https://github.com/ReeceClark2/kmwcd-viewer) from [ReeceClark2](https://github.com/ReeceClark2).
 
@@ -23,6 +23,8 @@ The tool is built with **PySide6** (Qt6 for Python) for the UI and **matplotlib*
 - One-step mouse wheel, slider, and left/right arrow navigation
 - Export to PNG/JPEG at **2× resolution** with filename + meta overlay
 - Status-bar **loading percentage** during pre-scan of the file
+- Bottom detections by type (Amplitude/Phase) and class (Normal/Extra) but still in BETA
+- Replay option with adjustable speed (in pings per second)
 
 ---
 
