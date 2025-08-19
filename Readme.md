@@ -185,7 +185,7 @@ This guide covers **macOS 15 (Sequoia)** via **MacPorts**, **Ubuntu 24.04 LTS** 
 3. Run the viewer:
    ```bash
    cd /path/to/your/folder
-   python3.11 kmwcd_viewer.py
+   python3.13 kmwcd_viewer.py
    ```
 
 ### Option B: Virtual environment
