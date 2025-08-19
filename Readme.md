@@ -178,8 +178,8 @@ This guide covers **macOS 15 (Sequoia)** via **MacPorts**, **Ubuntu 24.04 LTS** 
 
 2. (Optional) Select python/pip defaults:
    ```bash
-   sudo port select --set python python311
-   sudo port select --set pip pip311
+   sudo port select --set python python313
+   sudo port select --set pip pip313
    ```
 
 3. Run the viewer:
@@ -197,7 +197,7 @@ This guide covers **macOS 15 (Sequoia)** via **MacPorts**, **Ubuntu 24.04 LTS** 
 
 2. Create and activate venv:
    ```bash
-   python3.11 -m venv .venv
+   python3.13 -m venv .venv
    source .venv/bin/activate
    ```
 
