@@ -22,7 +22,7 @@ The tool is built with **PySide6** (Qt6 for Python) for the UI and **matplotlib*
 - **Static across-track X-scale** (symmetric limits) so the plot doesn't jump across pings
 - One-step mouse wheel, slider, and left/right arrow navigation
 - Export to PNG/JPEG at **2× resolution** with filename + meta overlay
-- Status-bar **loading percentage** during pre-scan of the file Shows per‑ping "MRZ points: <n>" and a startup blip like "Nav summary: MRZ=<m>, SKM=<k>, SPO=<s>"
+- Status-bar **loading percentage** during pre-scan of the file Shows per‑ping "MRZ points: " and a startup blip like "Nav summary: MRZ=, SKM=, SPO="
 - Bottom detections by type (Amplitude/Phase) and class (Normal/Extra)
 - **Replay** (0.1–10 pings/s) with the slider kept in sync
 - **Pick** mode with a modeless **Picked Positions** dialog (save to `.txt`)
