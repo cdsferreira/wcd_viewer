@@ -1,7 +1,7 @@
 # KMWCD Viewer
 
-**Current Version:** kmwcd_viewer_v0.6.0.py  
-**Scope:** Raw amplitude plotting (no dB), navigation metadata from `#SPO`, static X-scale option, image export, progress feedback, display bottom detections, and data replay.
+**Current Version:** kmwcd_viewer_v0.7.8.py  
+**Scope:** Raw amplitude plotting (no dB), navigation metadata from `#SPO`, static X-scale option, image export, progress feedback, display bottom detections, data replay and geo-picking.
 
 This tool was created using [valschmidt](https://github.com/valschmidt) work and his [KMALL file reader](https://github.com/valschmidt/kmall), and was heavily influenced the [KMWCD Viewer for EM2040](https://github.com/ReeceClark2/kmwcd-viewer) from [ReeceClark2](https://github.com/ReeceClark2).
 
@@ -22,9 +22,11 @@ The tool is built with **PySide6** (Qt6 for Python) for the UI and **matplotlib*
 - **Static across-track X-scale** (symmetric limits) so the plot doesn't jump across pings
 - One-step mouse wheel, slider, and left/right arrow navigation
 - Export to PNG/JPEG at **2× resolution** with filename + meta overlay
-- Status-bar **loading percentage** during pre-scan of the file
-- Bottom detections by type (Amplitude/Phase) and class (Normal/Extra) but still in BETA
-- Replay option with adjustable speed (in pings per second)
+- Status-bar **loading percentage** during pre-scan of the file Shows per‑ping "MRZ points: <n>" and a startup blip like "Nav summary: MRZ=<m>, SKM=<k>, SPO=<s>".
+- Bottom detections by type (Amplitude/Phase) and class (Normal/Extra)
+- **Replay** (0.1–10 pings/s) with the slider kept in sync
+- **Pick** mode with a modeless **Picked Positions** dialog (save to `.txt`)
+- Lightweight diagnostic prints to the terminal (kept intentionally)
 
 ---
 
@@ -71,6 +73,10 @@ The tool is built with **PySide6** (Qt6 for Python) for the UI and **matplotlib*
   - Left/Right arrows move one ping.  
   - Mouse wheel: one ping per notch (custom QSlider).
 
+- **Picked Positions**: modeless dialog sized to the main window’s width and ~one‑third height. Closing it **clears all picks** and unchecks **Pick** in the main window.
+
+- **Status bar**: shows file name, ping number, UTC time, SOG (see note below), and MRZ points count.
+
 ---
 
 ## 4. Plotting & Color Scaling
@@ -79,10 +85,35 @@ The tool is built with **PySide6** (Qt6 for Python) for the UI and **matplotlib*
 - **Normalization**: Linear normalization controlled by *Amp Min* / *Amp Max*. No per-ping auto unless you set those controls.  
 - **Geometry**: `Y=sin(angle)*range` (across-track), `Z=-cos(angle)*range` (depth).  
 - **Static X-scale**: If *Across-track Max* is set, use symmetric `[-Xmax, Xmax]` to stop jitter between pings.
+- **Bottom (MRZ) overlay**:
+  - Always **flipped** so that the across‑track sign matches the water‑column plot.
+  - **Color by detectionMethod** (from MRZ):
+    - `1` = **Amplitude** → Red
+    - `2` = **Phase** → Dark Blue
+  - **Fill by detectionType** (from MRZ):
+    - `0` = **Normal** → **solid** markers
+    - `1` = **Extra** → **hollow** markers
+    - `2` = **Rejected** → currently drawn in **green** (hollow)
 
 ---
 
-## 5. Design Decisions
+## 5. Picking & Export
+
+Enable **Pick**, then click in the plot. Each click appends a row to *Picked Positions* with:
+
+- `Ping` (index), `UTC`
+- `AcrossTrack_m` (signed), `Depth_m`
+- `ShipLat`, `ShipLon` (from nav at ping time)
+- `PointLat`, `PointLon` (computed by across‑track offset using COG/Heading when available)
+- `Azimuth` (**COG** preferred; **Heading** used when available)
+
+Use **Save** to export a tab‑separated `.txt`. **Close** clears all rows and disables Pick.
+
+---
+
+---
+
+## 6. Design Decisions
 
 - **Fixed colorbar axes**: avoids the colorbar pushing the plot left on every redraw.  
 - **Nearest-time NAV lookup**: robust against small timing offsets between ping and `#SPO` timestamps.  
@@ -91,7 +122,7 @@ The tool is built with **PySide6** (Qt6 for Python) for the UI and **matplotlib*
 
 ---
 
-## 6. Caveats & Limits
+## 7. Caveats & Limits
 
 - **No `#SPO` → N/A metadata**: If a file lacks `#SPO`, SOG/lat/lon remain `N/A`.  
 - **Large files**: Pre-scan touches all pings once; on very large files this can take some time (status shows %).  
@@ -101,9 +132,9 @@ The tool is built with **PySide6** (Qt6 for Python) for the UI and **matplotlib*
 
 ---
 
-## 7. Dependencies
+## 8. Dependencies
 
-- **Python** ≥ 3.10 (3.11 recommended)  
+- **Python** ≥ 3.11 (3.13 recommended)  
 - **PySide6** (Qt6 for Python)  
 - **matplotlib**  
 - **numpy**  
@@ -140,8 +171,7 @@ Optional: If your `kmall.py` is named differently or lives elsewhere, ensure `sy
 ## 11. Planned Features
 
 - Add capability of opening a list of files (datalist) or directory.
-- Add a stacked view (alongtrack).
-- Add Geo-Picking to allow users save positions from features.  
+- Add a stacked view (alongtrack). 
 - Add support to more WCD formats (WCD/ALL, S7K, R2Sonics, etc).
 - Integrate the tool in MB-System, and use MB I/O drivers to read the data (including KMALL).
 
@@ -162,7 +192,7 @@ This guide covers **macOS 15 (Sequoia)** via **MacPorts**, **Ubuntu 24.04 LTS** 
 - A local copy of:
   - `kmwcd_viewer.py` (the viewer script)
   - `kmall.py` (your KMALL reader)
-- Python 3.10+ (3.13 recommended)
+- Python 3.11+ (3.13 recommended)
 
 ---
 
@@ -178,7 +208,7 @@ This guide covers **macOS 15 (Sequoia)** via **MacPorts**, **Ubuntu 24.04 LTS** 
 
 2. (Optional) Select python/pip defaults:
    ```bash
-   sudo port select --set python python313
+   sudo port select --set python python311
    sudo port select --set pip pip313
    ```
 
