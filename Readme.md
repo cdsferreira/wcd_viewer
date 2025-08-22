@@ -111,8 +111,6 @@ Use **Save** to export a tab‑separated `.txt`. **Close** clears all rows and d
 
 ---
 
----
-
 ## 6. Design Decisions
 
 - **Fixed colorbar axes**: avoids the colorbar pushing the plot left on every redraw.  
@@ -145,14 +143,14 @@ Optional: If your `kmall.py` is named differently or lives elsewhere, ensure `sy
 
 ---
 
-## 8. Files of Interest
+## 9. Files of Interest
 
 - `kmwcd_viewer.py` – main viewer.  
 - `kmall.py` – local KMALL driver (required).
 
 ---
 
-## 9. Extension Ideas
+## 10. Extension Ideas
 
 - **dB mode** with per-file or per-ping auto-scaling.  
 - **Interpolation** mode with `scipy.interpolate.griddata` (cubic), saved as a secondary render mode.  
@@ -161,21 +159,21 @@ Optional: If your `kmall.py` is named differently or lives elsewhere, ensure `sy
 
 ---
 
-## 10. Testing Notes
+## 11. Testing Notes
 
 - Confirmed robust `#MWC/#SPO` filtering for string/bytes formats.  
 - Verified colorbar remains fixed across UI actions.  
 - Confirmed keyboard and one-step wheel navigation.  
 - Verified export includes filename + metadata and honors 2× DPI.
 
-## 11. Planned Features
+## 12. Planned Features
 
 - Add capability of opening a list of files (datalist) or directory.
 - Add a stacked view (alongtrack). 
 - Add support to more WCD formats (WCD/ALL, S7K, R2Sonics, etc).
 - Integrate the tool in MB-System, and use MB I/O drivers to read the data (including KMALL).
 
-## 12. Possible Features
+## 13. Possible Features
 
 - Add filters to remove noise from data.
 - Add possibility to detect and export features.
