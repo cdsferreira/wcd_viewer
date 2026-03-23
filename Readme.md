@@ -206,7 +206,7 @@ This guide covers **macOS 15 (Sequoia)** via **MacPorts**, **Ubuntu 24.04 LTS** 
 
 2. (Optional) Select python/pip defaults:
    ```bash
-   sudo port select --set python python311
+   sudo port select --set python python313
    sudo port select --set pip pip313
    ```
 
