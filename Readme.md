@@ -3,7 +3,7 @@
 **Current Version:** kmwcd_viewer_v0.7.8.py  
 **Scope:** Raw amplitude plotting (no dB), navigation metadata from `#SPO`, static X-scale option, image export, progress feedback, display bottom detections, data replay and geo-picking.
 
-This tool was created using [valschmidt](https://github.com/valschmidt) work and his [KMALL file reader](https://github.com/valschmidt/kmall), and was heavily influenced the [KMWCD Viewer for EM2040](https://github.com/ReeceClark2/kmwcd-viewer) from [ReeceClark2](https://github.com/ReeceClark2).
+This tool was created using [valschmidt](https://github.com/valschmidt) work and his [KMALL file reader](https://github.com/valschmidt/kmall), and was heavily influenced by the [KMWCD Viewer for EM2040](https://github.com/ReeceClark2/kmwcd-viewer) from [ReeceClark2](https://github.com/ReeceClark2).
 
 The tool reads the water column data and navigation directly from KMWCD/KMALL files. No conversion and/or importing are required.
 
